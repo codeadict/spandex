@@ -30,7 +30,6 @@ defmodule Spandex do
           {:ok, Trace.t()}
           | {:error, :disabled}
           | {:error, :trace_running}
-          | {:error, [Optimal.error()]}
   def start_trace(name, :disabled) when is_binary(name), do: {:error, :disabled}
 
   def start_trace(name, opts) when is_binary(name) do
@@ -82,7 +81,6 @@ defmodule Spandex do
           | {:error, :disabled}
           | {:error, :no_trace_context}
           | {:error, :no_span_context}
-          | {:error, [Optimal.error()]}
   def update_span(opts, top? \\ false)
   def update_span(:disabled, _), do: {:error, :disabled}
 
@@ -117,7 +115,6 @@ defmodule Spandex do
           {:ok, Span.t()}
           | {:error, :disabled}
           | {:error, :no_trace_context}
-          | {:error, [Optimal.error()]}
   def update_top_span(:disabled), do: {:error, :disabled}
 
   def update_top_span(opts), do: update_span(opts, true)
@@ -131,13 +128,13 @@ defmodule Spandex do
           {:ok, Trace.t()}
           | {:error, :disabled}
           | {:error, :no_trace_context}
-          | {:error, [Optimal.error()]}
   def update_all_spans(:disabled), do: {:error, :disabled}
 
   def update_all_spans(opts) do
     strategy = opts[:strategy]
 
-    with {:ok, %Trace{stack: stack, spans: spans} = trace} <- strategy.get_trace(opts[:trace_key]),
+    with {:ok, %Trace{stack: stack, spans: spans} = trace} <-
+           strategy.get_trace(opts[:trace_key]),
          {:ok, new_spans} <- update_many_spans(spans, opts),
          {:ok, new_stack} <- update_many_spans(stack, opts) do
       strategy.put_trace(opts[:trace_key], %{trace | stack: new_stack, spans: new_spans})
@@ -239,7 +236,6 @@ defmodule Spandex do
           | {:error, :disabled}
           | {:error, :no_trace_context}
           | {:error, :no_span_context}
-          | {:error, [Optimal.error()]}
   def span_error(_error, _stacktrace, :disabled), do: {:error, :disabled}
 
   def span_error(exception, stacktrace, opts) do
@@ -323,8 +319,20 @@ defmodule Spandex do
     strategy = opts[:strategy]
 
     case strategy.get_trace(opts[:trace_key]) do
-      {:ok, %Trace{id: trace_id, priority: priority, baggage: baggage, stack: [%Span{id: span_id} | _]}} ->
-        {:ok, %SpanContext{trace_id: trace_id, priority: priority, baggage: baggage, parent_id: span_id}}
+      {:ok,
+       %Trace{
+         id: trace_id,
+         priority: priority,
+         baggage: baggage,
+         stack: [%Span{id: span_id} | _]
+       }} ->
+        {:ok,
+         %SpanContext{
+           trace_id: trace_id,
+           priority: priority,
+           baggage: baggage,
+           parent_id: span_id
+         }}
 
       {:ok, %Trace{stack: []}} ->
         {:error, :no_span_context}
@@ -403,8 +411,10 @@ defmodule Spandex do
   @doc """
   Returns the context from a given set of HTTP headers, as determined by the adapter.
   """
-  @spec distributed_context(Plug.Conn.t(), Tracer.opts()) :: {:ok, SpanContext.t()} | {:error, :disabled}
-  @spec distributed_context(headers(), Tracer.opts()) :: {:ok, SpanContext.t()} | {:error, :disabled}
+  @spec distributed_context(Plug.Conn.t(), Tracer.opts()) ::
+          {:ok, SpanContext.t()} | {:error, :disabled}
+  @spec distributed_context(headers(), Tracer.opts()) ::
+          {:ok, SpanContext.t()} | {:error, :disabled}
   def distributed_context(_, :disabled), do: {:error, :disabled}
 
   def distributed_context(metadata, opts) do
@@ -428,13 +438,8 @@ defmodule Spandex do
     spans
     |> Enum.reduce({:ok, []}, fn
       span, {:ok, acc} ->
-        case Span.update(span, opts) do
-          {:ok, updated} ->
-            {:ok, [updated | acc]}
-
-          {:error, error} ->
-            {:error, error}
-        end
+        {:ok, updated} = Span.update(span, opts)
+        {:ok, [updated | acc]}
 
       _, {:error, error} ->
         {:error, error}
@@ -482,7 +487,8 @@ defmodule Spandex do
     adapter = opts[:adapter]
 
     with {:ok, span} <- Span.child_of(current_span, name, adapter.span_id(), adapter.now(), opts),
-         {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: [span | trace.stack]}) do
+         {:ok, _trace} <-
+           strategy.put_trace(opts[:trace_key], %{trace | stack: [span | trace.stack]}) do
       Logger.metadata(span_id: to_string(span.id), trace_id: to_string(trace.id))
       {:ok, span}
     end
@@ -555,10 +561,8 @@ defmodule Spandex do
   end
 
   defp update_or_keep(span, opts) do
-    case Span.update(span, opts) do
-      {:error, _} -> span
-      {:ok, span} -> span
-    end
+    {:ok, span} = Span.update(span, opts)
+    span
   end
 
   defp calculate_priority(sample_rate) do

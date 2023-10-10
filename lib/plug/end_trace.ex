@@ -6,30 +6,23 @@ defmodule Spandex.Plug.EndTrace do
 
   alias Spandex.Plug.Utils
 
-  @init_opts Optimal.schema(
-               opts: [
-                 tracer: :atom,
-                 tracer_opts: :keyword
-               ],
-               defaults: [
-                 tracer_opts: []
-               ],
-               required: [:tracer],
-               describe: [
-                 tracer: "The tracing module to be used to start the trace.",
-                 tracer_opts: "Any opts to be passed to the tracer when starting or continuing the trace."
-               ]
-             )
+  @type option ::
+          {:tracer, module()}
+          | {:tracer_opts, keyword()}
+  @type opts :: [option()]
+
+  @default_opts [tracer_opts: []]
 
   @doc """
   Accepts and validates opts for the plug, and underlying tracer.
 
-  #{Optimal.Doc.document(@init_opts)}
+  ## Options
+
+    * `:tracer` - The tracing module to be used to start the trace. Required.
+    * `:tracer_opts` - Any opts to be passed to the tracer when starting or continuing the trace.
   """
-  @spec init(opts :: Keyword.t()) :: Keyword.t()
-  def init(opts) do
-    Optimal.validate!(opts, @init_opts)
-  end
+  @spec init(opts :: opts()) :: opts()
+  def init(opts), do: Keyword.merge(@default_opts, opts)
 
   @spec call(conn :: Plug.Conn.t(), _opts :: Keyword.t()) :: Plug.Conn.t()
   def call(conn, opts) do

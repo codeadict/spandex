@@ -1,107 +1,16 @@
 defmodule Spandex.Span do
   @moduledoc """
   A container for all span data and metadata.
-  """
 
-  alias Spandex.Span
+  ## Special metadata
 
-  defstruct [
-    :completion_time,
-    :env,
-    :error,
-    :http,
-    :id,
-    :name,
-    :parent_id,
-    :private,
-    :resource,
-    :service,
-    :service_version,
-    :services,
-    :sql_query,
-    :start,
-    :tags,
-    :trace_id,
-    :type
-  ]
+  Apart from regular trace options, `Spandex.Span` allows specifying special
+  metadata often used in web transaction tracing. These are:
+  * `http` - metadata relating to the HTTP request,
+  * `error` - information about the error raised during processing of the span,
+  * `sql_query` - information about the SQL query this span represents.
 
-  @nested_opts [:error, :http, :sql_query]
-
-  @type t :: %Span{
-          completion_time: Spandex.timestamp() | nil,
-          env: String.t() | nil,
-          error: Keyword.t() | nil,
-          http: Keyword.t() | nil,
-          id: Spandex.id(),
-          name: String.t(),
-          parent_id: Spandex.id() | nil,
-          private: Keyword.t(),
-          resource: atom() | String.t(),
-          service: atom(),
-          service_version: String.t() | nil,
-          services: Keyword.t() | nil,
-          sql_query: Keyword.t() | nil,
-          start: Spandex.timestamp(),
-          tags: Keyword.t() | nil,
-          trace_id: Spandex.id(),
-          type: atom()
-        }
-
-  @span_opts Optimal.schema(
-               opts: [
-                 completion_time: :integer,
-                 env: :string,
-                 error: :keyword,
-                 http: :keyword,
-                 id: :any,
-                 name: :string,
-                 parent_id: :any,
-                 private: :keyword,
-                 resource: [:atom, :string],
-                 service: :atom,
-                 service_version: :string,
-                 services: :keyword,
-                 sql_query: :keyword,
-                 start: :integer,
-                 tags: :keyword,
-                 trace_id: :any,
-                 type: :atom
-               ],
-               defaults: [
-                 private: [],
-                 services: [],
-                 tags: []
-               ],
-               required: [
-                 :id,
-                 :name,
-                 :service,
-                 :start,
-                 :trace_id
-               ],
-               extra_keys?: true
-             )
-
-  def span_opts(), do: @span_opts
-
-  @doc """
-  Create a new span.
-
-  #{Optimal.Doc.document(@span_opts)}
-  """
-  @spec new(Keyword.t()) ::
-          {:ok, Span.t()}
-          | {:error, [Optimal.error()]}
-  def new(opts) do
-    update(nil, opts, @span_opts)
-  end
-
-  @doc """
-  Update an existing span.
-
-  #{Optimal.Doc.document(Map.put(@span_opts, :required, []))}
-
-  ## Special Meta
+  ### Example
 
   ```elixir
   [
@@ -131,16 +40,90 @@ defmodule Spandex.Span do
   ]
   ```
   """
-  @spec update(Span.t() | nil, Keyword.t(), Optimal.Schema.t()) ::
-          {:ok, Span.t()}
-          | {:error, [Optimal.error()]}
-  def update(span, opts, schema \\ Map.put(@span_opts, :required, [])) do
+
+  alias Spandex.Span
+
+  defstruct [
+    :completion_time,
+    :env,
+    :error,
+    :http,
+    :id,
+    :name,
+    :parent_id,
+    :private,
+    :resource,
+    :service,
+    :service_version,
+    :services,
+    :sql_query,
+    :start,
+    :tags,
+    :trace_id,
+    :type
+  ]
+
+  @type option ::
+          {:completion_time, integer()}
+          | {:env, String.t()}
+          | {:error, Keyword.t()}
+          | {:http, Keyword.t()}
+          | {:id, Spandex.id()}
+          | {:name, String.t()}
+          | {:parent_id, Spandex.id()}
+          | {:private, Keyword.t()}
+          | {:resource, atom() | String.t()}
+          | {:service, atom()}
+          | {:services, Keyword.t()}
+          | {:sql_query, Keyword.t()}
+          | {:start, Spandex.timestamp()}
+          | {:tags, Keyword.t()}
+          | {:trace_id, term()}
+          | {:type, atom()}
+
+  @type opts :: [option()]
+
+  @type t :: %Span{
+          completion_time: Spandex.timestamp() | nil,
+          env: String.t() | nil,
+          error: Keyword.t() | nil,
+          http: Keyword.t() | nil,
+          id: Spandex.id(),
+          name: String.t(),
+          parent_id: Spandex.id() | nil,
+          private: Keyword.t(),
+          resource: atom() | String.t(),
+          service: atom(),
+          service_version: String.t() | nil,
+          services: Keyword.t() | nil,
+          sql_query: Keyword.t() | nil,
+          start: Spandex.timestamp(),
+          tags: Keyword.t() | nil,
+          trace_id: Spandex.id(),
+          type: atom()
+        }
+
+  @nested_opts [:error, :http, :sql_query]
+
+  @doc """
+  Creates a new span.
+  """
+  @spec new(Span.opts()) :: {:ok, Span.t()}
+  def new(opts) do
+    update(nil, opts)
+  end
+
+  @doc """
+  Updates an existing span.
+  """
+  @spec update(Span.t() | nil, Span.opts()) :: {:ok, Span.t()}
+  def update(span, opts) do
     opts_without_nils = Enum.reject(opts, fn {_key, value} -> is_nil(value) end)
 
     starting_opts =
       span
-      |> Kernel.||(%{})
-      |> Map.take(schema.opts)
+      |> Kernel.||(%Span{})
+      |> Map.from_struct()
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
       |> merge_retaining_nested(opts_without_nils)
 
@@ -153,7 +136,14 @@ defmodule Spandex.Span do
           starting_opts
       end
 
-    validate_and_merge(span, with_type, schema)
+    new_span =
+      if span do
+        struct(span, with_type)
+      else
+        struct(Span, with_type)
+      end
+
+    {:ok, new_span}
   end
 
   @spec merge_retaining_nested(Keyword.t(), Keyword.t()) :: Keyword.t()
@@ -198,29 +188,8 @@ defmodule Spandex.Span do
     end)
   end
 
-  @spec validate_and_merge(Span.t() | nil, Keyword.t(), Optimal.schema()) ::
+  @spec child_of(Span.t(), String.t(), Spandex.id(), Spandex.timestamp(), Span.opts()) ::
           {:ok, Span.t()}
-          | {:error, [Optimal.error()]}
-  defp validate_and_merge(span, opts, schema) do
-    case Optimal.validate(opts, schema) do
-      {:ok, opts} ->
-        new_span =
-          if span do
-            struct(span, opts)
-          else
-            struct(Span, opts)
-          end
-
-        {:ok, new_span}
-
-      {:error, errors} ->
-        {:error, errors}
-    end
-  end
-
-  @spec child_of(Span.t(), String.t(), Spandex.id(), Spandex.timestamp(), Keyword.t()) ::
-          {:ok, Span.t()}
-          | {:error, [Optimal.error()]}
   def child_of(parent_span, name, id, start, opts) do
     child = %Span{parent_span | id: id, name: name, start: start, parent_id: parent_span.id}
     update(child, opts)

@@ -7,45 +7,39 @@ defmodule Spandex.Plug.AddContext do
 
   alias Spandex.Plug.Utils
 
-  @init_opts Optimal.schema(
-               opts: [
-                 allowed_route_replacements: [{:list, :atom}, nil],
-                 disallowed_route_replacements: {:list, :atom},
-                 query_params: {:list, :atom},
-                 tracer: :atom,
-                 tracer_opts: :keyword
-               ],
-               defaults: [
-                 allowed_route_replacements: nil,
-                 disallowed_route_replacements: [],
-                 query_params: [],
-                 tracer_opts: []
-               ],
-               required: [:tracer],
-               describe: [
-                 tracer: "The tracing module to be used to start the trace.",
-                 tracer_opts: "Any opts to be passed to the tracer when starting or continuing the trace.",
-                 allowed_route_replacements:
-                   "A list of route parts that may be replaced with their actual value. " <>
-                     "If not set or set to nil, then all will be allowed, unless they are disallowed.",
-                 disallowed_route_replacements:
-                   "A list of route parts that may *not* be replaced with their actual value.",
-                 query_params: "A list of query params who's value will be included in the resource name."
-               ]
-             )
+  @type option ::
+          {:allowed_route_replacements, [atom()]}
+          | {:disallowed_route_replacements, [atom()]}
+          | {:query_params, [atom()]}
+          | {:tracer, module()}
+          | {:tracer_opts, keyword()}
+  @type opts :: [option()]
+
+  @default_opts [
+    allowed_route_replacements: nil,
+    disallowed_route_replacements: [],
+    query_params: [],
+    tracer_opts: []
+  ]
 
   @doc """
   Starts a trace, considering the filters/parameters in the provided options.
 
-  #{Optimal.Doc.document(@init_opts)}
+  ## Options
+
+    * `:tracer` - The tracing module to be used to start the trace. Required.
+    * `:allowed_route_replacements` - A list of route parts that may be replaced with their actual value.
+      If not set or set to nil, then all will be allowed, unless they are disallowed.
+    * `:disallowed_route_replacements` - A list of route parts that may *not* be replaced with their actual value.
+    * `:query_params` - A list of query params who's value will be included in the resource name.
+    * `:tracer_opts` - Any opts to be passed to the tracer when starting or continuing the trace.
 
   You would generally not use `allowed_route_replacements` and `disallowed_route_replacements` together.
   """
-  @spec init(opts :: Keyword.t()) :: Keyword.t()
+  @spec init(opts :: opts()) :: opts()
   def init(opts) do
-    opts = Optimal.validate!(opts, @init_opts)
-
-    opts
+    @default_opts
+    |> Keyword.merge(opts || [])
     |> Keyword.update!(:allowed_route_replacements, fn config ->
       if config do
         Enum.map(config, &Atom.to_string/1)
