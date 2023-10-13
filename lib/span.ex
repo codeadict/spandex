@@ -105,11 +105,18 @@ defmodule Spandex.Span do
 
   @nested_opts [:error, :http, :sql_query]
 
+  @default_opts [
+    private: [],
+    services: [],
+    tags: []
+  ]
+
   @doc """
   Creates a new span.
   """
   @spec new(Span.opts()) :: {:ok, Span.t()}
   def new(opts) do
+    opts = Keyword.merge(@default_opts, opts)
     update(nil, opts)
   end
 
