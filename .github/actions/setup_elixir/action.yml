@@ -1,0 +1,47 @@
+name: "Setup Elixir"
+description: "Fetch and Compile an Elixir Project"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: ${{env.OTP_VERSION}}
+        elixir-version: ${{env.ELIXIR_VERSION}}
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Check deps cache
+      id: cache-deps
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-elixir-deps
+      with:
+        path: deps
+        key: ${{ runner.os }}-deps-mix-${{env.MIX_ENV}}-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-mix-${{env.MIX_ENV}}-${{ env.cache-name }}-
+
+    - name: Check build cache
+      id: cache-build
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-compiled-build
+      with:
+        path: _build
+        key: ${{ runner.os }}-build-mix-${{env.MIX_ENV}}-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-mix-${{env.MIX_ENV}}-${{ env.cache-name }}-
+          ${{ runner.os }}-build-mix-${{env.MIX_ENV}}-
+
+    - name: Install dependencies
+      run: mix deps.get
+      shell: bash
+    - name: Compile deps
+      run: mix deps.compile
+      shell: bash
+    - name: Compile code
+      run: mix compile --warnings-as-errors
+      shell: bash

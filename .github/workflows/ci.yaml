@@ -1,0 +1,73 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - no_optimal_validation
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ELIXIR_VERSION: '1.14'
+  FORCE_COLOR: '1'
+  MIX_ENV: test
+  OTP_VERSION: '25.3'
+
+jobs:
+  build:
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - uses: ./.github/actions/setup_elixir
+
+      - name: Install dependencies
+        run: mix do deps.get, deps.compile
+
+      - name: Compile code
+        run: mix compile --warnings-as-errors
+
+  linters:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: ./.github/actions/setup_elixir
+      - name: Check Elixir code formatting
+        run: mix format --check-formatted
+      - name: Check for unused deps
+        run: mix deps.unlock --check-unused
+      - name: Run credo
+        run: mix credo
+
+  dialyzer:
+    needs: [build]
+    env:
+      MIX_ENV: dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: ./.github/actions/setup_elixir
+      - name: Run Dialyzer
+        run: mix dialyzer --format github
+
+  tests:
+      needs: [build]
+      runs-on: ubuntu-latest
+      name: Tests
+      steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup_elixir
+      - name: Run Tests
+        run: mix test
