@@ -18,11 +18,12 @@ concurrency:
 env:
   ELIXIR_VERSION: '1.14'
   FORCE_COLOR: '1'
-  MIX_ENV: test
+  MIX_ENV: dev
   OTP_VERSION: '25.3'
 
 jobs:
   build:
+    name: Build
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout Code
@@ -37,6 +38,7 @@ jobs:
         run: mix compile --warnings-as-errors
 
   linters:
+    name: Check code quality
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -51,21 +53,33 @@ jobs:
         run: mix credo
 
   dialyzer:
+    name: Run Dialyzer
     needs: [build]
-    env:
-      MIX_ENV: dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       - uses: ./.github/actions/setup_elixir
+      - id: "dialyzer-cache"
+        name: priv/plts cache
+        uses: "actions/cache@v3"
+        with:
+          key: "${{ runner.os }}-dialyzer-${{ env.MIX_ENV }}-erlang-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}"
+          path: priv/plts
+          "restore-keys": |
+            ${{ runner.os }}-dialyzer-${{ env.MIX_ENV }}
+      - if: "steps.dialyzer-cache.output.cache-hit != 'true'"
+        name: Build Dialyzer PLTs
+        run: "mix dialyzer --plt"
       - name: Run Dialyzer
         run: mix dialyzer --format github
 
   tests:
+      name: Tests
       needs: [build]
       runs-on: ubuntu-latest
-      name: Tests
+      env:
+        MIX_ENV: dev
       steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup_elixir
