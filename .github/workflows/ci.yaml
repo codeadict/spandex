@@ -79,7 +79,7 @@ jobs:
       needs: [build]
       runs-on: ubuntu-latest
       env:
-        MIX_ENV: dev
+        MIX_ENV: test
       steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup_elixir
