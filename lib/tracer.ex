@@ -135,7 +135,7 @@ defmodule Spandex.Tracer do
             unquote(body)
           rescue
             exception ->
-              stacktrace = __STACKTRACE__
+              stacktrace = System.stacktrace()
               _ = unquote(__MODULE__).span_error(exception, stacktrace, opts)
               reraise exception, stacktrace
           after
@@ -155,7 +155,7 @@ defmodule Spandex.Tracer do
             unquote(body)
           rescue
             exception ->
-              stacktrace = __STACKTRACE__
+              stacktrace = System.stacktrace()
               _ = unquote(__MODULE__).span_error(exception, stacktrace, opts)
               reraise exception, stacktrace
           after
