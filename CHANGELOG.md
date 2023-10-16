@@ -1,9 +1,75 @@
 # Change Log
 
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](Https://conventionalcommits.org) for commit guidelines.
-
 <!-- changelog -->
+
+## [3.2.0](https://github.com/spandex-project/spandex/compare/3.1.0...3.2.0) (2022-10-20)
+
+### Features:
+
+* Add Service Version Support by @kamilkowalski in https://github.com/spandex-project/spandex/pull/122
+
+## Bug Fixes:
+
+* Fix interpolated string span and trace names by @gerbal in https://github.com/spandex-project/spandex/pull/136
+
+## New Contributors:
+* @gerbal made their first contribution in https://github.com/spandex-project/spandex/pull/136
+
+
+## [3.1.0](https://github.com/spandex-project/spandex/compare/3.0.3...3.1.0) (2021-10-23)
+
+* Encode logger metadata as string. by @aselder in https://github.com/spandex-project/spandex/pull/127
+* Set up sponsorship links by @GregMefford in https://github.com/spandex-project/spandex/pull/132
+* Guard clauses for trace and span macros by @GregMefford in https://github.com/spandex-project/spandex/pull/130
+* Misc doc changes by @kianmeng in https://github.com/spandex-project/spandex/pull/128
+
+## [3.0.3](https://github.com/spandex-project/spandex/compare/3.0.2...3.0.3) (2020-11-10)
+
+
+
+
+## [3.0.2](https://github.com/spandex-project/spandex/compare/3.0.1...3.0.2) (2020-07-13)
+
+
+
+
+### Bug Fixes:
+
+* add a name to failed traces (#116)
+
+## [3.0.1](https://github.com/spandex-project/spandex/compare/3.0.0...3.0.1) (2020-05-14)
+
+
+
+
+### Bug Fixes:
+
+* configure sender in tests
+
+## [3.0.0](https://github.com/spandex-project/spandex/compare/2.4.4...3.0.0) (2020-05-14)
+### Breaking Changes:
+
+* allow headers to be passed into `Spandex.distributed_context/2` (#113)
+
+
+
+## [2.4.4](https://github.com/spandex-project/spandex/compare/2.4.3...2.4.4) (2020-4-28)
+
+
+
+
+### Bug Fixes:
+
+* Set Logger.metadata when `continue_trace/3` is called as well (#111)
+
+## [2.4.3](https://github.com/spandex-project/spandex/compare/2.4.2...2.4.3) (2020-3-25)
+
+
+
+
+### Bug Fixes:
+
+* No unmatched returns (#109)
 
 ## [2.4.2](https://github.com/spandex-project/spandex/compare/2.4.1...2.4.2) (2020-1-13)
 

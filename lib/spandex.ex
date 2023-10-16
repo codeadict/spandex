@@ -31,13 +31,13 @@ defmodule Spandex do
           | {:error, :disabled}
           | {:error, :trace_running}
           | {:error, [Optimal.error()]}
-  def start_trace(_, :disabled), do: {:error, :disabled}
+  def start_trace(name, :disabled) when is_binary(name), do: {:error, :disabled}
 
-  def start_trace(name, opts) do
+  def start_trace(name, opts) when is_binary(name) do
     strategy = opts[:strategy]
 
     if strategy.trace_active?(opts[:trace_key]) do
-      Logger.error("Tried to start a trace over top of another trace.")
+      Logger.error("Tried to start a trace over top of another trace. name: #{inspect(name)}")
       {:error, :trace_running}
     else
       do_start_trace(name, opts)
@@ -55,9 +55,9 @@ defmodule Spandex do
           {:ok, Span.t()}
           | {:error, :disabled}
           | {:error, :no_trace_context}
-  def start_span(_, :disabled), do: {:error, :disabled}
+  def start_span(name, :disabled) when is_binary(name), do: {:error, :disabled}
 
-  def start_span(name, opts) do
+  def start_span(name, opts) when is_binary(name) do
     strategy = opts[:strategy]
 
     case strategy.get_trace(opts[:trace_key]) do
@@ -351,7 +351,7 @@ defmodule Spandex do
     strategy = opts[:strategy]
 
     if strategy.trace_active?(opts[:trace_key]) do
-      Logger.error("Tried to continue a trace over top of another trace.")
+      Logger.error("Tried to continue a trace over top of another trace. name: #{inspect(name)}")
       {:error, :trace_already_present}
     else
       do_continue_trace(name, span_context, opts)
@@ -393,7 +393,7 @@ defmodule Spandex do
     strategy = opts[:strategy]
 
     if strategy.trace_active?(opts[:trace_key]) do
-      Logger.error("Tried to continue a trace over top of another trace.")
+      Logger.error("Tried to continue a trace over top of another trace. name: #{inspect(name)}")
       {:error, :trace_already_present}
     else
       do_continue_trace_from_span(name, span, opts)
@@ -403,14 +403,13 @@ defmodule Spandex do
   @doc """
   Returns the context from a given set of HTTP headers, as determined by the adapter.
   """
-  @spec distributed_context(Plug.Conn.t(), Tracer.opts()) ::
-          {:ok, SpanContext.t()}
-          | {:error, :disabled}
+  @spec distributed_context(Plug.Conn.t(), Tracer.opts()) :: {:ok, SpanContext.t()} | {:error, :disabled}
+  @spec distributed_context(headers(), Tracer.opts()) :: {:ok, SpanContext.t()} | {:error, :disabled}
   def distributed_context(_, :disabled), do: {:error, :disabled}
 
-  def distributed_context(conn, opts) do
+  def distributed_context(metadata, opts) do
     adapter = opts[:adapter]
-    adapter.distributed_context(conn, opts)
+    adapter.distributed_context(metadata, opts)
   end
 
   @doc """
@@ -454,6 +453,8 @@ defmodule Spandex do
     adapter = opts[:adapter]
 
     with {:ok, top_span} <- span(name, opts, span_context, adapter) do
+      Logger.metadata(trace_id: to_string(span_context.trace_id), span_id: to_string(top_span.id))
+
       trace = %Trace{
         id: span_context.trace_id,
         priority: span_context.priority,
@@ -482,7 +483,7 @@ defmodule Spandex do
 
     with {:ok, span} <- Span.child_of(current_span, name, adapter.span_id(), adapter.now(), opts),
          {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: [span | trace.stack]}) do
-      Logger.metadata(span_id: span.id, trace_id: trace.id)
+      Logger.metadata(span_id: to_string(span.id), trace_id: to_string(trace.id))
       {:ok, span}
     end
   end
@@ -494,7 +495,7 @@ defmodule Spandex do
 
     with {:ok, span} <- span(name, opts, span_context, adapter),
          {:ok, _trace} <- strategy.put_trace(opts[:trace_key], %{trace | stack: [span]}) do
-      Logger.metadata(span_id: span.id, trace_id: trace_id)
+      Logger.metadata(span_id: to_string(span.id), trace_id: to_string(trace_id))
       {:ok, span}
     end
   end
@@ -502,12 +503,14 @@ defmodule Spandex do
   defp do_start_trace(name, opts) do
     strategy = opts[:strategy]
     adapter = opts[:adapter]
+    sample_rate = Keyword.get(opts, :sample_rate, 1.0)
+    priority = calculate_priority(sample_rate)
     trace_id = adapter.trace_id()
     span_context = %SpanContext{trace_id: trace_id}
 
     with {:ok, span} <- span(name, opts, span_context, adapter) do
-      Logger.metadata(trace_id: trace_id, span_id: span.id)
-      trace = %Trace{spans: [], stack: [span], id: trace_id}
+      Logger.metadata(trace_id: to_string(trace_id), span_id: to_string(span.id))
+      trace = %Trace{spans: [], stack: [span], id: trace_id, priority: priority}
       strategy.put_trace(opts[:trace_key], trace)
     end
   end
@@ -547,6 +550,7 @@ defmodule Spandex do
     |> Keyword.put(:parent_id, span_context.parent_id)
     |> Keyword.put(:start, adapter.now())
     |> Keyword.put(:id, adapter.span_id())
+    |> Keyword.put(:priority, span_context.priority)
     |> Span.new()
   end
 
@@ -554,6 +558,15 @@ defmodule Spandex do
     case Span.update(span, opts) do
       {:error, _} -> span
       {:ok, span} -> span
+    end
+  end
+
+  defp calculate_priority(sample_rate) do
+    cond do
+      sample_rate == 0 -> 0
+      sample_rate == 1 -> 1
+      :rand.uniform() <= sample_rate -> 1
+      true -> 0
     end
   end
 end

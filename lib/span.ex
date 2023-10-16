@@ -16,6 +16,7 @@ defmodule Spandex.Span do
     :private,
     :resource,
     :service,
+    :service_version,
     :services,
     :sql_query,
     :start,
@@ -37,6 +38,7 @@ defmodule Spandex.Span do
           private: Keyword.t(),
           resource: atom() | String.t(),
           service: atom(),
+          service_version: String.t() | nil,
           services: Keyword.t() | nil,
           sql_query: Keyword.t() | nil,
           start: Spandex.timestamp(),
@@ -57,6 +59,7 @@ defmodule Spandex.Span do
                  private: :keyword,
                  resource: [:atom, :string],
                  service: :atom,
+                 service_version: :string,
                  services: :keyword,
                  sql_query: :keyword,
                  start: :integer,
@@ -112,7 +115,7 @@ defmodule Spandex.Span do
     ],
     error: [
       exception: ArgumentError.exception("foo"),
-      stacktrace: System.stacktrace(),
+      stacktrace: __STACKTRACE__,
       error?: true # Used for specifying that a span is an error when there is no exception or stacktrace.
     ],
     sql_query: [
